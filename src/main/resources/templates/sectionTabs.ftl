@@ -70,21 +70,22 @@
             .tabs > .easyWizardWrapper > .step{visibility: hidden; display:block !important; padding:0px !important; border:0px !important; clear: right !important; margin:0 !important; margin-top:0px !important; box-shadow:none !important; }
             .tabs > .easyWizardWrapperContainer > .easyWizardWrapper > .step_wrapper > .step{display:block !important; padding:0px !important;  margin:0 !important; margin-top:0px !important; box-shadow:none !important; clear: right !important; border: 0px !important;}
             .tabs.rtl > .easyWizardWrapper > .step.active {float: right !important;}
+            .tabs .step.section-visibility-hidden {display: none !important; visibility: hidden !important;}
             .tabs.easyWizardElement.easyPager {overflow-x: clip !important;}
 
             </style>
         <script>
-            $(document).ready(function(){
-                var originalChange = VisibilityMonitor.prototype.triggerChange;
+          $(document).ready(function(){
+    var originalChange = VisibilityMonitor.prototype.triggerChange;
 
-                VisibilityMonitor.prototype.triggerChange = function(targetEl, names) {
-                    originalChange(targetEl, names);
-                    $(targetEl).trigger("section-visibility-control-changed");
-                };
-                if (${rightToLeft?string}) {
-                 $("#${elementParamName!}").addClass("rtl");
-                } 
-            });
+    VisibilityMonitor.prototype.triggerChange = function(targetEl, names) {
+        originalChange(targetEl, names);
+        $(targetEl).trigger("section-visibility-control-changed");
+    };
+    if (${rightToLeft?string}) {
+        $("#${elementParamName!}").addClass("rtl");
+    }
+});
         </script>
     </#if>
 </#if>

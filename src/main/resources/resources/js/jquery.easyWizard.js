@@ -80,25 +80,25 @@
                     $stepsHtml = $('<ul class="easyWizardSteps">');
 
                  $steps.each(function(index) {
-    step = index + 1;
-    var floatDirection = thisSettings.rightToLeft ? 'right' : 'left'; 
-    $(this).css({
-        'float': floatDirection, 
-        'width': thisSettings.width,
-        'height': 'auto'
-    }).attr('data-step', step);
+                        step = index + 1;
+                        var floatDirection = thisSettings.rightToLeft ? 'right' : 'left';
+                        $(this).css({
+                            'float': floatDirection,
+                            'width': thisSettings.width,
+                            'height': 'auto'
+                        }).attr('data-step', step);
 
                         if(!index) {
-        $(this).addClass('active').css('height', '');
+                            $(this).addClass('active').css('height', '');
                         }else {
-        $(this).find('input, textarea, select, button').attr('tabindex', '-1');
-    }
+                            $(this).find('input, textarea, select, button').attr('tabindex', '-1');
+                        }
 
                         //stepText = thisSettings.stepsText.replace('{n}', '<span>'+step+'</span>');
                         //stepText = stepText.replace('{t}', $(this).attr('data-step-title'));
-    stepText = $(this).find("> .form-section-title span, > .subform-section-title span").text();
-                        $stepsHtml.append('<li'+(!index?' class="current"':'')+' data-step="'+step+'">'+stepText+'</li>');
-});
+                        stepText = $(this).find("> .form-section-title span, > .subform-section-title span").text();
+                        $stepsHtml.append('<li' + (!index ? ' class="current"' : '') + ' data-step="' + step + '">' + stepText + '</li>');
+                    });
 
                     if(thisSettings.showSteps) {
                         $this.prepend($stepsHtml);
@@ -112,7 +112,7 @@
                             easyWizardMethods.updateStep.call($this, this, true);
                         })
                     });
-
+                    
                     if(thisSettings.showButtons) {
                         paginationHtml = '<div class="easyWizardButtons">';
                             paginationHtml += '<button class="prev '+thisSettings.buttonsClass+'">'+thisSettings.prevButton+'</button>';
@@ -179,13 +179,26 @@
                 }
             });
         },
-        updateStep : function (stepEL, updateButton) {
+
+        updateStep: function (stepEL, updateButton) {
+            thisSettings = arrSettings[this.index()];
             var step = $(stepEL).data("step");
+
             if ($(stepEL).hasClass('section-visibility-hidden')) {
-                this.find("> .easyWizardSteps > li[data-step='"+step+"']").hide();
+                this.find("> .easyWizardSteps > li[data-step='" + step + "']").hide();
             } else {
-                this.find("> .easyWizardSteps > li[data-step='"+step+"']").show();
+                this.find("> .easyWizardSteps > li[data-step='" + step + "']").show();
+
+                if (updateButton) {
+                    easyWizardMethods.goToStep.call(this, step);
+                } else {
+                    var $currentActive = this.find('> .easyWizardWrapper > .step.active:not(.section-visibility-hidden)');
+                    if ($currentActive.length === 0) {
+                        easyWizardMethods.goToStep.call(this, step);
+                    }
+                }
             }
+
             if (updateButton) {
                 easyWizardMethods.updateButtons.call(this);
             }
@@ -245,49 +258,63 @@
             }
         },
         goToStep : function(step) {
-            thisSettings = arrSettings[this.index()];
-            $activeStep = this.find('> .easyWizardWrapper > .'+ thisSettings.stepClassName +'.active');
-            $nextStep = this.find('> .easyWizardWrapper > .'+thisSettings.stepClassName+'[data-step="'+step+'"]');
-            currentStep = $activeStep.attr('data-step');
+    thisSettings = arrSettings[this.index()];
+    $activeStep = this.find('> .easyWizardWrapper > .'+ thisSettings.stepClassName +'.active');
+    $nextStep = this.find('> .easyWizardWrapper > .'+thisSettings.stepClassName+'[data-step="'+step+'"]');
+    currentStep = $activeStep.attr('data-step');
 
-            // Prevent sliding same step
-            if (currentStep == step) return;
+    // Prevent sliding same step
+    if (currentStep == step) return;
 
-            // Before callBack
-            var beforeValue = thisSettings.before(this, $activeStep, $nextStep);
-            if(beforeValue === false) {
-                return false;
-            }
+    // Before callBack
+    var beforeValue = thisSettings.before(this, $activeStep, $nextStep);
+    if(beforeValue === false) {
+        return false;
+    }
 
-            // Slide !
-            wizard = this;
-            $activeStep.removeClass('active');
-            $activeStep.find('input, textarea, select, button').attr('tabindex', '-1');
-
-            $nextStep.css('height', '').addClass('active');
-            $nextStep.find('input, textarea, select, button').removeAttr('tabindex');
-            
-            $nextStep.trigger('section_wizard_step_shown');
-            
-            var width = $($activeStep).width();
-            
-            wizard.css({ overflow: 'hidden' });
-            this.find('> .easyWizardWrapper').stop(true, true).animate({
-                'margin-left': width * (step - 1) * -1
-            }, function () {
-                //$activeStep.css({ height: '1px' });
-                wizard.css({ overflow: 'unset' });
-            });
-
-            // Defines steps
-            this.find('> .easyWizardSteps .current').removeClass('current');
-            this.find('> .easyWizardSteps li[data-step="'+step+'"]').addClass('current');
-
-            easyWizardMethods.updateButtons.call(this);
-
-            // After callBack
-            thisSettings.after(this, $activeStep, $nextStep);
+   //Calculate position among visible steps only
+    var $visibleSteps = this.find('> .easyWizardWrapper > .'+ thisSettings.stepClassName +':not(.section-visibility-hidden)');
+    var targetVisibleIndex = 0;
+    
+    $visibleSteps.each(function(index) {
+        if ($(this).attr('data-step') == step) {
+            targetVisibleIndex = index;
+            return false;
         }
+    });
+
+    var visibleCount = $visibleSteps.length;
+    this.find('.easyWizardWrapper').width(thisSettings.width * visibleCount);
+
+    // Slide !
+    wizard = this;
+    $activeStep.removeClass('active');
+    $activeStep.find('input, textarea, select, button').attr('tabindex', '-1');
+
+    $nextStep.css('height', '').addClass('active');
+    $nextStep.find('input, textarea, select, button').removeAttr('tabindex');
+    
+    $nextStep.trigger('section_wizard_step_shown');
+    
+    var width = $($activeStep).width();
+    
+    wizard.css({ overflow: 'hidden' });
+    this.find('> .easyWizardWrapper').stop(true, true).animate({
+        'margin-left': width * targetVisibleIndex * -1  // ? Fixed calculation
+    }, function () {
+                //$activeStep.css({ height: '1px' });
+        wizard.css({ overflow: 'unset' });
+    });
+
+    // Defines steps
+    this.find('> .easyWizardSteps .current').removeClass('current');
+    this.find('> .easyWizardSteps li[data-step="'+step+'"]').addClass('current');
+
+    easyWizardMethods.updateButtons.call(this);
+
+    // After callBack
+    thisSettings.after(this, $activeStep, $nextStep);
+}
     };
 
     $.fn.easyWizard = function(method) {
