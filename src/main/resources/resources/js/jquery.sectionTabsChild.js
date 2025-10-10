@@ -35,8 +35,12 @@
 
         for (i = 0; i < sURLVariables.length; i++) {
             sParameterName = sURLVariables[i].split('=');
+            const key = sParameterName[0];
+            const value = sParameterName[1];
 
-            data[sParameterName[0]] = (sParameterName[1] === undefined ? true : sParameterName[1]);
+            if (key && key.trim() !== "") {
+                data[key] = (value === undefined ? true : value);
+            }
         }
         
         $.ajax({
