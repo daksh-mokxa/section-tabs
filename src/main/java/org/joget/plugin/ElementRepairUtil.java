@@ -5,9 +5,7 @@ import java.util.Collection;
 import java.util.List;
 import org.joget.apps.form.model.Column;
 import org.joget.apps.form.model.Element;
-import org.joget.apps.form.model.FormData;
 import org.joget.apps.form.service.FormUtil;
-import org.joget.commons.util.LogUtil;
 
 final class ElementRepairUtil {
 
@@ -18,10 +16,9 @@ final class ElementRepairUtil {
     }
 
     static void repairElementTree(Element root) {
-        if (root == null) {
-            return;
+        if (root != null) {
+            repairChildren(root);
         }
-        repairChildren(root);
     }
 
     private static void repairChildren(Element parent) {
@@ -40,40 +37,40 @@ final class ElementRepairUtil {
         }
     }
 
-    static Element tryRepairElement(Element element) {
-        if (element == null || !isMissingElement(element)) {
+    private static Element tryRepairElement(Element element) {
+        if (!isMissingElement(element)) {
             return element;
         }
         String configuredClass = configuredClassName(element);
-        try {
-            if (LEGACY_COLUMN_CONTAINER.equals(configuredClass)) {
-                return repairAsColumn(element);
-            }
-            if (LEGACY_COLUMNS.equals(configuredClass)) {
-                return repairAsLegacyColumns(element);
-            }
-        } catch (Exception e) {
-            LogUtil.warn(LegacyColumns.class.getName(), "Could not repair legacy element id="
-                    + element.getPropertyString(FormUtil.PROPERTY_ID) + " class=" + configuredClass
-                    + ": " + e.getMessage());
+        if (LEGACY_COLUMN_CONTAINER.equals(configuredClass)) {
+            return repairViaJsonString(element);
+        }
+        if (LEGACY_COLUMNS.equals(configuredClass)) {
+            return repairViaJsonString(element);
         }
         return element;
     }
 
-    static Element repairAsColumn(Element source) {
-        Column column = new Column();
-        column.setProperties(source.getProperties());
-        copyElementIdentity(source, column);
-        column.setChildren(repairChildCollection(source.getChildren()));
-        return column;
-    }
+    private static Element repairViaJsonString(Element missing) {
+        try {
+            String json = FormUtil.generateElementJson(missing);
+            if (json == null || json.isEmpty()) {
+                return missing;
+            }
 
-    static Element repairAsLegacyColumns(Element source) {
-        LegacyColumns columns = new LegacyColumns();
-        columns.setProperties(source.getProperties());
-        copyElementIdentity(source, columns);
-        columns.setChildren(repairChildCollection(source.getChildren()));
-        return columns;
+            json = json.replace(LEGACY_COLUMNS, LegacyColumns.class.getName());
+            json = json.replace(LEGACY_COLUMN_CONTAINER, Column.class.getName());
+
+            json = json.replace("\"columns\":", "\"elements\":");
+
+            Element repaired = FormUtil.parseElementFromJson(json);
+            if (repaired != null) {
+                copyElementIdentity(missing, repaired);
+                return repaired;
+            }
+        } catch (Exception e) {
+        }
+        return missing;
     }
 
     private static Collection<Element> repairChildCollection(Collection<Element> children) {
@@ -84,18 +81,15 @@ final class ElementRepairUtil {
         for (Element child : children) {
             Element fixed = tryRepairElement(child);
             if (isMissingElement(fixed) && LEGACY_COLUMN_CONTAINER.equals(configuredClassName(fixed))) {
-                fixed = repairAsColumn(fixed);
+                fixed = repairViaJsonString(fixed);
             }
             repaired.add(fixed);
         }
         return repaired;
     }
 
-    static void replaceChild(Element parent, Element oldChild, Element newChild) {
+    private static void replaceChild(Element parent, Element oldChild, Element newChild) {
         Collection<Element> children = parent.getChildren();
-        if (children == null) {
-            return;
-        }
         if (children instanceof List) {
             List<Element> list = (List<Element>) children;
             int index = list.indexOf(oldChild);
@@ -112,7 +106,7 @@ final class ElementRepairUtil {
         parent.setChildren(updated);
     }
 
-    static void copyElementIdentity(Element source, Element target) {
+    private static void copyElementIdentity(Element source, Element target) {
         String customParameterName = source.getCustomParameterName();
         if (customParameterName != null && !customParameterName.isEmpty()) {
             target.setCustomParameterName(customParameterName);
@@ -123,33 +117,7 @@ final class ElementRepairUtil {
         }
     }
 
-    static String safeRender(Element element, FormData formData, boolean includeMetaData) {
-        if (element == null) {
-            return "";
-        }
-        if (isMissingElement(element)) {
-            Element repaired = tryRepairElement(element);
-            if (repaired != element) {
-                try {
-                    return repaired.render(formData, includeMetaData);
-                } catch (Throwable e) {
-                    LogUtil.error(LegacyColumns.class.getName(), e, "Render failed after repair for id="
-                            + repaired.getPropertyString(FormUtil.PROPERTY_ID));
-                }
-            }
-            return missingElementHtml(element);
-        }
-        try {
-            return element.render(formData, includeMetaData);
-        } catch (Throwable e) {
-            LogUtil.error(LegacyColumns.class.getName(), e, "Render failed for id="
-                    + element.getPropertyString(FormUtil.PROPERTY_ID) + " class=" + element.getClassName());
-            return "<div class=\"form-cell form-error\"><span class=\"form-error-message\">Unable to render field "
-                    + element.getPropertyString(FormUtil.PROPERTY_ID) + "</span></div>";
-        }
-    }
-
-    static boolean isMissingElement(Element element) {
+    private static boolean isMissingElement(Element element) {
         return element.getClass().getName().contains("MissingElement");
     }
 
@@ -159,12 +127,5 @@ final class ElementRepairUtil {
             className = element.getPropertyString("className");
         }
         return className;
-    }
-
-    private static String missingElementHtml(Element element) {
-        String configuredClass = configuredClassName(element);
-        return "<div class=\"form-cell form-error\"><span class=\"form-error-message\">Missing form element ("
-                + configuredClass + " / " + element.getPropertyString(FormUtil.PROPERTY_ID)
-                + "). Check form definition or installed plugins.</span></div>";
     }
 }

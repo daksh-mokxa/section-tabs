@@ -12,7 +12,6 @@ import org.joget.apps.form.model.FormBuilderPaletteElement;
 import org.joget.apps.form.model.FormContainer;
 import org.joget.apps.form.model.FormData;
 import org.joget.apps.form.service.FormUtil;
-import org.joget.commons.util.LogUtil;
 import org.joget.commons.util.SetupManager;
 import org.joget.workflow.util.WorkflowUtil;
 
@@ -65,13 +64,9 @@ public class SectionTabs extends Element implements FormBuilderPaletteElement, F
                                 firstChild = false;
                             }
                         }
-                        logElementTree(sc.getContentRoot(), "assembled tab section");
                         form.getChildren().remove(s);
                         childs.add(sc);
                     } else {
-                        LogUtil.warn(getClass().getName(), "SectionTabs: section id [" + id + "] not found under form "
-                                + form.getPropertyString(FormUtil.PROPERTY_ID) + ". Configured sections: "
-                                + getPropertyString("sections"));
                     }
                 }
 
@@ -146,7 +141,6 @@ public class SectionTabs extends Element implements FormBuilderPaletteElement, F
     }
     
     protected SectionTabsChild createSectionTabsChild(Element source) {
-        ElementRepairUtil.repairElementTree(source);
         SectionTabsChild sc = new SectionTabsChild();
         sc.setWrappedSection(source);
         sc.setProperties(source.getProperties());
@@ -154,31 +148,6 @@ public class SectionTabs extends Element implements FormBuilderPaletteElement, F
         sc.setLoadBinder(source.getLoadBinder());
         sc.setStoreBinder(source.getStoreBinder());
         return sc;
-    }
-
-    protected void logElementTree(Element element, String context) {
-        logElementTree(element, context, "");
-    }
-
-    protected void logElementTree(Element element, String context, String path) {
-        if (element == null) {
-            return;
-        }
-        String id = element.getPropertyString(FormUtil.PROPERTY_ID);
-        String currentPath = path.isEmpty() ? id : path + "/" + id;
-        String className = element.getClass().getName();
-        if (element.getClass().getName().contains("MissingElement")) {
-            LogUtil.warn(getClass().getName(), "SectionTabs " + context + ": MissingElement at path="
-                    + currentPath + " configuredClass=" + element.getClassName()
-                    + " propertyClass=" + element.getPropertyString("className")
-                    + " customParameterName=" + element.getCustomParameterName());
-        }
-        Collection<Element> children = element.getChildren();
-        if (children != null) {
-            for (Element child : children) {
-                logElementTree(child, context, currentPath);
-            }
-        }
     }
 
     protected boolean isFormBuilderActive() {

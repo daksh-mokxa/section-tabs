@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -18,7 +17,6 @@ import org.joget.apps.form.model.Form;
 import org.joget.apps.form.model.FormData;
 import org.joget.apps.form.model.Section;
 import org.joget.apps.form.service.FormUtil;
-import org.joget.commons.util.LogUtil;
 import org.joget.commons.util.SecurityUtil;
 import org.joget.commons.util.StringUtil;
 import org.joget.plugin.base.PluginWebSupport;
@@ -83,70 +81,19 @@ public class SectionTabsChild extends Section implements PluginWebSupport{
         dataModel.put("processId", (formData.getProcessId() != null)?formData.getProcessId():"");
         dataModel.put("activityId", (formData.getActivityId() != null)?formData.getActivityId():"");
         ElementRepairUtil.repairElementTree(getContentRoot());
-        prepareElementTreeForRender(getContentRoot());
-        logMissingElements(getContentRoot(), getPropertyString(FormUtil.PROPERTY_ID));
-        try {
-            return super.renderTemplate(formData, dataModel);
-        } catch (Exception e) {
-            LogUtil.error(getClassName(), e, "SectionTabsChild render failed for section id="
-                    + getPropertyString(FormUtil.PROPERTY_ID) + " label=" + getPropertyString("label")
-                    + " paramName=" + FormUtil.getElementParameterName(this));
-            return "<div class=\"form-cell form-error\"><span class=\"form-error-message\">Unable to render section "
-                    + getPropertyString("label") + " (" + getPropertyString(FormUtil.PROPERTY_ID) + ")</span></div>";
-        }
+        return super.renderTemplate(formData, dataModel);
     }
 
-    protected void prepareElementTreeForRender(Element element) {
-        if (element == null) {
-            return;
-        }
-        String customId = element.getPropertyString("customId");
-        if (customId != null && customId.isEmpty()) {
-            element.setProperty("customId", element.getPropertyString(FormUtil.PROPERTY_ID));
-        }
-        String id = element.getPropertyString(FormUtil.PROPERTY_ID);
-        if ((id == null || id.isEmpty()) && element.getPropertyString("customId") != null) {
-            element.setProperty(FormUtil.PROPERTY_ID, element.getPropertyString("customId"));
-        }
-        if (element.getCustomParameterName() != null && element.getCustomParameterName().isEmpty()) {
-            element.setCustomParameterName(null);
-        }
-        Collection<Element> children = element.getChildren();
-        if (children != null) {
-            List<Element> snapshot = new ArrayList<Element>(children);
-            for (Element child : snapshot) {
-                prepareElementTreeForRender(child);
-                Element repaired = ElementRepairUtil.tryRepairElement(child);
-                if (repaired != child) {
-                    ElementRepairUtil.replaceChild(element, child, repaired);
-                    prepareElementTreeForRender(repaired);
-                }
-            }
-        }
-    }
-
-    protected void logMissingElements(Element element, String path) {
-        if (element == null) {
-            return;
-        }
-        String id = element.getPropertyString(FormUtil.PROPERTY_ID);
-        String currentPath = path + "/" + id;
-        if (element.getClass().getName().contains("MissingElement")) {
-            LogUtil.warn(getClassName(), "MissingElement at " + currentPath + " configuredClass=" + element.getClassName()
-                    + " propertyClass=" + element.getPropertyString("className")
-                    + " — field could not be loaded (check form definition / plugins)");
-        }
-        Collection<Element> children = element.getChildren();
-        if (children != null) {
-            for (Element child : children) {
-                logMissingElements(child, currentPath);
-            }
-        }
-    }
-    
     public String renderChild(Element child, FormData formData, boolean includeMetaData) {
-        prepareElementTreeForRender(child);
-        return ElementRepairUtil.safeRender(child, formData, includeMetaData);
+        if (child == null) {
+            return "";
+        }
+        try {
+            ElementRepairUtil.repairElementTree(child);
+            return child.render(formData, includeMetaData);
+        } catch (Throwable e) {
+            return "";
+        }
     }
 
     public boolean isLoad(FormData formData) {
@@ -167,7 +114,6 @@ public class SectionTabsChild extends Section implements PluginWebSupport{
             recursiveDisableSectionTab(jsonRoot);
             return FormUtil.generateElementJson(jsonRoot);
         } catch (Exception e) {
-            LogUtil.error(getClassName(), e, null);
         }
         return "";
     }
@@ -249,7 +195,6 @@ public class SectionTabsChild extends Section implements PluginWebSupport{
                 content += section.renderChild(e, formData, false);
             }
         } catch (Exception e) {
-            LogUtil.error(getClassName(), e, nonce);
         }
 
         if (content != null && !content.isEmpty()) {
