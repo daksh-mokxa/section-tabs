@@ -4,7 +4,7 @@
     <#if (element.properties.load?? && element.properties.load == "true")>
     <input type="hidden" name="${elementParamName!}_loaded" value="true" />
         <#list element.children as e>
-            ${e.render(formData, includeMetaData!false)}
+            ${element.renderChild(e, formData, includeMetaData!false)}
         </#list>
     <#else>
     <div class="temp_content"> 

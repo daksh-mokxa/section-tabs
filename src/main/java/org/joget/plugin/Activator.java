@@ -16,6 +16,7 @@ public class Activator implements BundleActivator {
         //Register plugin here
         registrationList.add(context.registerService(SectionTabs.class.getName(), new SectionTabs(), null));
         registrationList.add(context.registerService(SectionTabsChild.class.getName(), new SectionTabsChild(), null));
+        registrationList.add(context.registerService(LegacyColumns.class.getName(), new LegacyColumns(), null));
     }
 
     public void stop(BundleContext context) {

@@ -12,6 +12,7 @@ import org.joget.apps.form.model.FormBuilderPaletteElement;
 import org.joget.apps.form.model.FormContainer;
 import org.joget.apps.form.model.FormData;
 import org.joget.apps.form.service.FormUtil;
+import org.joget.commons.util.LogUtil;
 import org.joget.commons.util.SetupManager;
 import org.joget.workflow.util.WorkflowUtil;
 
@@ -47,16 +48,15 @@ public class SectionTabs extends Element implements FormBuilderPaletteElement, F
                 
                 Collection<Element> childs = new ArrayList<Element>();
 
-                for (String id : ids) {
+                for (String rawId : ids) {
+                    String id = rawId.trim();
+                    if (id.isEmpty()) {
+                        continue;
+                    }
                     Element s = getSection(form, id);
                     if (s != null) {
-                        Element sc = new SectionTabsChild();
+                        SectionTabsChild sc = createSectionTabsChild(s);
                         sc.setParent(this);
-                        sc.setChildren(s.getChildren());
-                        sc.setProperties(s.getProperties());
-                        sc.setCustomParameterName(s.getCustomParameterName());
-                        sc.setLoadBinder(s.getLoadBinder());
-                        sc.setStoreBinder(s.getStoreBinder());
                         if (getPropertyString("load_all").equals("true")) {
                             sc.setProperty("load", "true");
                         } else {
@@ -65,8 +65,13 @@ public class SectionTabs extends Element implements FormBuilderPaletteElement, F
                                 firstChild = false;
                             }
                         }
+                        logElementTree(sc.getContentRoot(), "assembled tab section");
                         form.getChildren().remove(s);
                         childs.add(sc);
+                    } else {
+                        LogUtil.warn(getClass().getName(), "SectionTabs: section id [" + id + "] not found under form "
+                                + form.getPropertyString(FormUtil.PROPERTY_ID) + ". Configured sections: "
+                                + getPropertyString("sections"));
                     }
                 }
 
@@ -140,6 +145,42 @@ public class SectionTabs extends Element implements FormBuilderPaletteElement, F
         return "/plugin/org.joget.apps.form.lib.TextArea/images/textArea_icon.gif";
     }
     
+    protected SectionTabsChild createSectionTabsChild(Element source) {
+        ElementRepairUtil.repairElementTree(source);
+        SectionTabsChild sc = new SectionTabsChild();
+        sc.setWrappedSection(source);
+        sc.setProperties(source.getProperties());
+        sc.setCustomParameterName(source.getCustomParameterName());
+        sc.setLoadBinder(source.getLoadBinder());
+        sc.setStoreBinder(source.getStoreBinder());
+        return sc;
+    }
+
+    protected void logElementTree(Element element, String context) {
+        logElementTree(element, context, "");
+    }
+
+    protected void logElementTree(Element element, String context, String path) {
+        if (element == null) {
+            return;
+        }
+        String id = element.getPropertyString(FormUtil.PROPERTY_ID);
+        String currentPath = path.isEmpty() ? id : path + "/" + id;
+        String className = element.getClass().getName();
+        if (element.getClass().getName().contains("MissingElement")) {
+            LogUtil.warn(getClass().getName(), "SectionTabs " + context + ": MissingElement at path="
+                    + currentPath + " configuredClass=" + element.getClassName()
+                    + " propertyClass=" + element.getPropertyString("className")
+                    + " customParameterName=" + element.getCustomParameterName());
+        }
+        Collection<Element> children = element.getChildren();
+        if (children != null) {
+            for (Element child : children) {
+                logElementTree(child, context, currentPath);
+            }
+        }
+    }
+
     protected boolean isFormBuilderActive() {
         HttpServletRequest request = WorkflowUtil.getHttpServletRequest();
         return FormUtil.isFormBuilderActive() 
