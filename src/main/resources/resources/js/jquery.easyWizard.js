@@ -104,6 +104,12 @@
                         $this.prepend($stepsHtml);
                     }
 
+                    // Ensure container has height (steps are floated)
+                    var firstHeight = $steps.first().outerHeight(true);
+                    if (firstHeight) {
+                        $this.height(firstHeight);
+                    }
+
                     //hide hidden step
                     $steps.each(function(index) {
                         easyWizardMethods.updateStep.call($this, this, false);
@@ -284,7 +290,38 @@
     });
 
     var visibleCount = $visibleSteps.length;
-    this.find('.easyWizardWrapper').width(thisSettings.width * visibleCount);
+
+    var currentWidth = thisSettings.width * visibleCount;
+    if (!currentWidth) {
+        var $easyWizardElement = this.closest('.easyWizardElement');
+        var parentWidth = $easyWizardElement.length ? $easyWizardElement.parent().width() : 0;
+        if (parentWidth) {
+            currentWidth = parentWidth * visibleCount;
+        }
+    }
+    var applyWidths = function() {
+        var $easyWizardElement = wizard.closest('.easyWizardElement');
+        var parentWidth = $easyWizardElement.length ? $easyWizardElement.parent().width() : 0;
+        var stepWidth = parentWidth || wizard.width() || thisSettings.width || $activeStep.width() || $nextStep.width() || 0;
+        if (!stepWidth) {
+            return;
+        }
+
+        wizard.css("max-width", stepWidth);
+        wizard.find('.easyWizardWrapper').width(stepWidth * visibleCount);
+        wizard.find('.step').each(function(i, obj) {
+            $(obj).width(stepWidth);
+        });
+        wizard.find('.easyWizardWrapper').css("margin-left", stepWidth * targetVisibleIndex * -1);
+    };
+
+    var applyHeights = function() {
+        var h = $nextStep.outerHeight(true);
+        if (h) {
+            wizard.height(h);
+        }
+    };
+    this.find('.easyWizardWrapper').width(currentWidth);
 
     // Slide !
     wizard = this;
@@ -296,13 +333,18 @@
     
     $nextStep.trigger('section_wizard_step_shown');
     
-    var width = $($activeStep).width();
-    
+    applyWidths();
+    applyHeights();
+    setTimeout(function() { applyWidths(); applyHeights(); }, 0);
+    setTimeout(function() { applyWidths(); applyHeights(); }, 50);
+
+    var width = wizard.width() || $($activeStep).width();
     wizard.css({ overflow: 'hidden' });
     this.find('> .easyWizardWrapper').stop(true, true).animate({
-        'margin-left': width * targetVisibleIndex * -1  // ? Fixed calculation
+        'margin-left': width * targetVisibleIndex * -1
     }, function () {
-                //$activeStep.css({ height: '1px' });
+        applyWidths();
+        applyHeights();
         wizard.css({ overflow: 'unset' });
     });
 
