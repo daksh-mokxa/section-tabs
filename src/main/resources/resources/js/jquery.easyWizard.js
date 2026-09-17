@@ -46,16 +46,28 @@
             
             $(window).resize(function () {
                 $('.easyWizardElement').each(function(){
-                    if($(this).parent().width() !=0){
-                        var width = $(this).parent().width();
-                        $(this).css("max-width", width);
-                        $(this).find('.easyWizardWrapper').width(width * $(this).find('.easyWizardSteps')[0].childElementCount);
-                        $(this).find('.step').each(function (i, obj) {
-                            $(obj).width(width);
+                    var $wizard = $(this);
+                    if($wizard.parent().width() !=0){
+                        var width = $wizard.parent().width();
+
+
+                        var $visibleSteps = $wizard.find('> .easyWizardWrapper > .step:not(.section-visibility-hidden)');
+                        var visibleCount = $visibleSteps.length || 1;
+
+
+                        var currentStep = $wizard.find('> .easyWizardSteps > .current').attr('data-step');
+                        var currentVisibleIndex = $visibleSteps.index($visibleSteps.filter('[data-step="' + currentStep + '"]'));
+                        if (currentVisibleIndex < 0) {
+                            currentVisibleIndex = 0;
+                        }
+
+                        $wizard.css("max-width", width);
+
+                        $wizard.find('> .easyWizardWrapper > .step').each(function (i, obj) {
+                            $(obj).outerWidth(width);
                         });
-                        var currentStep = $(this).find('.easyWizardSteps > .current').attr('data-step');
-                        var currentMarginLeft = width * (currentStep - 1) * -1;
-                        $(this).find('.easyWizardWrapper').css("margin-left",currentMarginLeft);
+                        $wizard.find('> .easyWizardWrapper').outerWidth(width * visibleCount);
+                        $wizard.find('> .easyWizardWrapper').css("margin-left", width * currentVisibleIndex * -1);
                     }
                 });                
             });
@@ -72,7 +84,7 @@
                 if(thisSettings.steps > 1) {
                     // Create UI
                     $this.wrapInner('<div class="easyWizardWrapper" />');
-                    $this.find('.easyWizardWrapper').width(thisSettings.width * thisSettings.steps);
+                    $this.find('> .easyWizardWrapper').outerWidth(thisSettings.width * thisSettings.steps);
                     $this.css({
                         'position': 'relative'
                     }).addClass('easyPager');
@@ -84,9 +96,8 @@
                         var floatDirection = thisSettings.rightToLeft ? 'right' : 'left';
                         $(this).css({
                             'float': floatDirection,
-                            'width': thisSettings.width,
                             'height': 'auto'
-                        }).attr('data-step', step);
+                        }).outerWidth(thisSettings.width).attr('data-step', step);
 
                         if(!index) {
                             $(this).addClass('active').css('height', '');
@@ -291,28 +302,29 @@
 
     var visibleCount = $visibleSteps.length;
 
-    var currentWidth = thisSettings.width * visibleCount;
-    if (!currentWidth) {
-        var $easyWizardElement = this.closest('.easyWizardElement');
-        var parentWidth = $easyWizardElement.length ? $easyWizardElement.parent().width() : 0;
-        if (parentWidth) {
-            currentWidth = parentWidth * visibleCount;
-        }
-    }
-    var applyWidths = function() {
+    wizard = this;
+
+    var getStepWidth = function() {
         var $easyWizardElement = wizard.closest('.easyWizardElement');
         var parentWidth = $easyWizardElement.length ? $easyWizardElement.parent().width() : 0;
-        var stepWidth = parentWidth || wizard.width() || thisSettings.width || $activeStep.width() || $nextStep.width() || 0;
+        return parentWidth || wizard.width() || thisSettings.width
+                || $activeStep.outerWidth() || $nextStep.outerWidth() || 0;
+    };
+
+    var applyWidths = function() {
+        var stepWidth = getStepWidth();
         if (!stepWidth) {
             return;
         }
 
         wizard.css("max-width", stepWidth);
-        wizard.find('.easyWizardWrapper').width(stepWidth * visibleCount);
-        wizard.find('.step').each(function(i, obj) {
-            $(obj).width(stepWidth);
+
+
+        wizard.find('> .easyWizardWrapper > .' + thisSettings.stepClassName).each(function(i, obj) {
+            $(obj).outerWidth(stepWidth);
         });
-        wizard.find('.easyWizardWrapper').css("margin-left", stepWidth * targetVisibleIndex * -1);
+        wizard.find('> .easyWizardWrapper').outerWidth(stepWidth * visibleCount);
+        wizard.find('> .easyWizardWrapper').css("margin-left", stepWidth * targetVisibleIndex * -1);
     };
 
     var applyHeights = function() {
@@ -321,10 +333,7 @@
             wizard.height(h);
         }
     };
-    this.find('.easyWizardWrapper').width(currentWidth);
-
     // Slide !
-    wizard = this;
     $activeStep.removeClass('active');
     $activeStep.find('input, textarea, select, button').attr('tabindex', '-1');
 
@@ -338,7 +347,7 @@
     setTimeout(function() { applyWidths(); applyHeights(); }, 0);
     setTimeout(function() { applyWidths(); applyHeights(); }, 50);
 
-    var width = wizard.width() || $($activeStep).width();
+    var width = getStepWidth();
     wizard.css({ overflow: 'hidden' });
     this.find('> .easyWizardWrapper').stop(true, true).animate({
         'margin-left': width * targetVisibleIndex * -1
