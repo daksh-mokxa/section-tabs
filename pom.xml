@@ -4,7 +4,7 @@
     <groupId>org.joget.plugin</groupId>
     <artifactId>section-tabs</artifactId>
     <packaging>bundle</packaging>
-    <version>9.0.4</version>
+    <version>9.0.5</version>
     <name>section-tabs</name>
     <url>http://www.joget.org</url>
     <build>

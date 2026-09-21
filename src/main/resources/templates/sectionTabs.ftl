@@ -68,10 +68,12 @@
             .tabs > .easyWizardWrapper > .step:not(.active) > .subform-section-title {display: block !important; padding: 1px;}
             .tabs > .easyWizardWrapper > .step:not(.active) > .subform-column {display: none}
             .tabs > .easyWizardWrapper > .step{visibility: hidden; display:block !important; padding:0px !important; border:0px !important; clear: right !important; margin:0 !important; margin-top:0px !important; box-shadow:none !important; }
+            .tabs > .easyWizardWrapper > .step:after {content:""; display:table; clear:both;}
             .tabs > .easyWizardWrapperContainer > .easyWizardWrapper > .step_wrapper > .step{display:block !important; padding:0px !important;  margin:0 !important; margin-top:0px !important; box-shadow:none !important; clear: right !important; border: 0px !important;}
             .tabs.rtl > .easyWizardWrapper > .step.active {float: right !important;}
             .tabs .step.section-visibility-hidden {display: none !important; visibility: hidden !important;}
             .tabs.easyWizardElement.easyPager {overflow-x: clip !important;}
+            .tabs > .easyWizardWrapper.sliding {transition: transform 400ms ease-in-out;}
 
             </style>
         <script>

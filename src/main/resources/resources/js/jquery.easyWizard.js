@@ -11,6 +11,21 @@
  * ======================================================== */
 (function( $ ) {
     var arrSettings = [];
+
+    var HEIGHT_BUFFER = 70;
+    var measureFullHeight = function(el) {
+        var top = el.getBoundingClientRect().top;
+        var maxBottom = el.getBoundingClientRect().bottom;
+        var all = el.getElementsByTagName('*');
+        for (var i = 0; i < all.length; i++) {
+            var r = all[i].getBoundingClientRect();
+            if (r.height > 0 && r.bottom > maxBottom) {
+                maxBottom = r.bottom;
+            }
+        }
+        return (maxBottom - top) + HEIGHT_BUFFER;
+    };
+
     var easyWizardMethods = {
         init : function(options) {
             var settings = $.extend( {
@@ -67,7 +82,7 @@
                             $(obj).outerWidth(width);
                         });
                         $wizard.find('> .easyWizardWrapper').outerWidth(width * visibleCount);
-                        $wizard.find('> .easyWizardWrapper').css("margin-left", width * currentVisibleIndex * -1);
+                        $wizard.find('> .easyWizardWrapper').css("transform", "translateX(" + (width * currentVisibleIndex * -1) + "px)");
                     }
                 });                
             });
@@ -75,9 +90,9 @@
             return this.each(function() {
                 thisSettings = settings;
 
-                $this = $(this); // Wizard Obj
+                var $this = $(this); // Wizard Obj
                 $this.addClass('easyWizardElement');
-                $steps = $this.find('> .'+thisSettings.stepClassName);
+                var $steps = $this.find('> .'+thisSettings.stepClassName);
                 thisSettings.steps = $steps.length;
                 thisSettings.width = $(this).width();
 
@@ -116,7 +131,7 @@
                     }
 
                     // Ensure container has height (steps are floated)
-                    var firstHeight = $steps.first().outerHeight(true);
+                    var firstHeight = measureFullHeight($steps.get(0));
                     if (firstHeight) {
                         $this.height(firstHeight);
                     }
@@ -129,6 +144,24 @@
                             easyWizardMethods.updateStep.call($this, this, true);
                         })
                     });
+
+                    // Keep the container height in sync with the active step's real content
+                    if (typeof ResizeObserver !== 'undefined') {
+                        var stepResizeObserver = new ResizeObserver(function(entries) {
+                            entries.forEach(function(entry) {
+                                var $step = $(entry.target);
+                                if ($step.hasClass('active')) {
+                                    var h = measureFullHeight(entry.target);
+                                    if (h) {
+                                        $this.height(h);
+                                    }
+                                }
+                            });
+                        });
+                        $steps.each(function() {
+                            stepResizeObserver.observe(this);
+                        });
+                    }
                     
                     if(thisSettings.showButtons) {
                         paginationHtml = '<div class="easyWizardButtons">';
@@ -275,10 +308,10 @@
             }
         },
         goToStep : function(step) {
-    thisSettings = arrSettings[this.index()];
-    $activeStep = this.find('> .easyWizardWrapper > .'+ thisSettings.stepClassName +'.active');
-    $nextStep = this.find('> .easyWizardWrapper > .'+thisSettings.stepClassName+'[data-step="'+step+'"]');
-    currentStep = $activeStep.attr('data-step');
+    var thisSettings = arrSettings[this.index()];
+    var $activeStep = this.find('> .easyWizardWrapper > .'+ thisSettings.stepClassName +'.active');
+    var $nextStep = this.find('> .easyWizardWrapper > .'+thisSettings.stepClassName+'[data-step="'+step+'"]');
+    var currentStep = $activeStep.attr('data-step');
 
     // Prevent sliding same step
     if (currentStep == step) return;
@@ -302,7 +335,7 @@
 
     var visibleCount = $visibleSteps.length;
 
-    wizard = this;
+    var wizard = this;
 
     var getStepWidth = function() {
         var $easyWizardElement = wizard.closest('.easyWizardElement');
@@ -311,7 +344,8 @@
                 || $activeStep.outerWidth() || $nextStep.outerWidth() || 0;
     };
 
-    var applyWidths = function() {
+    // Resizes steps/wrapper only; the wrapper's transform (its slide position) is left to the transition below so re-measuring never cancels the slide
+    var applySizes = function() {
         var stepWidth = getStepWidth();
         if (!stepWidth) {
             return;
@@ -324,11 +358,10 @@
             $(obj).outerWidth(stepWidth);
         });
         wizard.find('> .easyWizardWrapper').outerWidth(stepWidth * visibleCount);
-        wizard.find('> .easyWizardWrapper').css("margin-left", stepWidth * targetVisibleIndex * -1);
     };
 
     var applyHeights = function() {
-        var h = $nextStep.outerHeight(true);
+        var h = measureFullHeight($nextStep.get(0));
         if (h) {
             wizard.height(h);
         }
@@ -339,23 +372,36 @@
 
     $nextStep.css('height', '').addClass('active');
     $nextStep.find('input, textarea, select, button').removeAttr('tabindex');
-    
+
     $nextStep.trigger('section_wizard_step_shown');
-    
-    applyWidths();
+
+    applySizes();
     applyHeights();
-    setTimeout(function() { applyWidths(); applyHeights(); }, 0);
-    setTimeout(function() { applyWidths(); applyHeights(); }, 50);
+    // Any further height changes as the step's content settles (images, widgets, etc.)
+    // are picked up by the ResizeObserver bound to each step in init()
 
     var width = getStepWidth();
     wizard.css({ overflow: 'hidden' });
-    this.find('> .easyWizardWrapper').stop(true, true).animate({
-        'margin-left': width * targetVisibleIndex * -1
-    }, function () {
-        applyWidths();
+
+    // Slide via a compositor-only transform instead of animating margin-left, which
+    // forces a full layout reflow on every frame and can make later content lag behind
+    var $wrapper = this.find('> .easyWizardWrapper');
+    var settled = false;
+    var finishSlide = function() {
+        if (settled) return;
+        settled = true;
+        $wrapper.off('transitionend.easyWizard').removeClass('sliding');
+        applySizes();
         applyHeights();
         wizard.css({ overflow: 'unset' });
+    };
+    $wrapper.off('transitionend.easyWizard').on('transitionend.easyWizard', function(e) {
+        if (e.target === $wrapper.get(0)) finishSlide();
     });
+    $wrapper.addClass('sliding');
+    void $wrapper.get(0).offsetWidth; // force reflow so the transition reliably animates from the current transform
+    $wrapper.css('transform', 'translateX(' + (width * targetVisibleIndex * -1) + 'px)');
+    setTimeout(finishSlide, 450);
 
     // Defines steps
     this.find('> .easyWizardSteps .current').removeClass('current');
